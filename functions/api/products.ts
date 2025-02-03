@@ -1,4 +1,4 @@
-import { D1Database, D1Result } from '@cloudflare/workers-types';
+import { D1Database } from '@cloudflare/workers-types';
 
 // Define the Product interface
 interface Product {
@@ -13,21 +13,23 @@ interface Product {
   productImage?: string;
 }
 
+// Define the Env interface
 interface Env {
   DB: D1Database;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
 
-  // Handle CORS
   if (request.method === "OPTIONS") {
     return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
+      headers: corsHeaders
     });
   }
 
@@ -38,14 +40,13 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       ).all();
 
       return Response.json(products.results, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
+        headers: corsHeaders
       });
     }
 
     if (request.method === "POST") {
-      const body = await request.json() as Product;
+      const body = await request.json() as Product;  // Fixed typo from 'Poduct' to 'Product'
+
       const result = await env.DB.prepare(
         "INSERT INTO products (productName, category, shelfLife, shelfLifeUnit, unlimitedShelfLife, packUnit, description, productImage) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
@@ -61,22 +62,27 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         )
         .run();
 
-      return Response.json({ success: true, id: result.meta.last_row_id }, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
+      return Response.json({
+        success: true,
+        id: result.meta.last_row_id
+      }, {
+        headers: corsHeaders
       });
     }
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    return Response.json({ error: errorMessage }, {
-      status: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
+    console.error("Server error:", error);
+    return Response.json(
+      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      {
+        status: 500,
+        headers: corsHeaders
+      }
+    );
   }
 
-  return new Response('Method not allowed', { status: 405 });
-}
+  return new Response('Method not allowed', {
+    status: 405,
+    headers: corsHeaders
+  });
+};

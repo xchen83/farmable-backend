@@ -1,59 +1,109 @@
-# FarmableFrontend
+# Farmable Backend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.1.5.
+This is the backend API for the Farmable project, built with Cloudflare Pages Functions and D1 database.
 
-## Development server
+## Project Structure
+farmable-backend/
+├── functions/
+│ └── api/
+│ └── products.ts # API endpoint for products
+├── index.js # Entry point
+├── package.json # Dependencies and scripts
+├── wrangler.toml # Cloudflare configuration
+└── schema.sql # Database schema
 
-To start a local development server, run:
 
+## Setup
+
+1. Install dependencies:
+bash
+npm install
+
+2. Create a D1 database (if not already created):
+bash
+wrangler d1 create farmable-database
+
+3. Apply the database schema:
+bash
+wrangler d1 execute farmable-database --file=schema.sql
+
+
+## Development
+
+Run the development server:
+bash
+npm run dev
+
+
+The API will be available at: `https://farmable-backend.pages.dev/api/products`
+
+## API Endpoints
+
+### GET /api/products
+Returns all products in the database.
+
+### POST /api/products
+Creates a new product. Required fields:
+- productName (string)
+- category (string)
+- shelfLife (number, optional)
+- shelfLifeUnit (string, optional)
+- unlimitedShelfLife (boolean)
+- packUnit (string)
+- description (string, optional)
+- productImage (string, optional)
+
+## Database Schema
+sql
+CREATE TABLE products (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+productName TEXT NOT NULL,
+category TEXT NOT NULL,
+shelfLife INTEGER,
+shelfLifeUnit TEXT,
+unlimitedShelfLife BOOLEAN NOT NULL DEFAULT false,
+packUnit TEXT NOT NULL,
+description TEXT,
+productImage TEXT
+);
+
+
+## Environment Variables
+
+The project uses Cloudflare D1 for the database. The database binding is configured in `wrangler.toml`.
+
+## Testing
+
+To test your remote database, you can use these commands:
+
+1. View all products in the remote database:
 ```bash
-ng serve
+wrangler d1 execute farmable-database --remote --command="SELECT * FROM products"
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
+2. Add a test product to remote database:
 ```bash
-ng generate component component-name
+wrangler d1 execute farmable-database --remote --command="INSERT INTO products (productName, category, shelfLife, shelfLifeUnit, unlimitedShelfLife, packUnit, description) VALUES ('Test Remote Apple', 'Fruits', 14, 'days', 0, 'kg', 'Testing remote database')"
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
+3. Test the remote API endpoint directly:
 ```bash
-ng generate --help
+curl https://farmable-backend.pages.dev/api/products
 ```
 
-## Building
-
-To build the project run:
-
+4. Add a product through the remote API:
 ```bash
-ng build
+curl -X POST https://farmable-backend.pages.dev/api/products \
+-H "Content-Type: application/json" \
+-d '{
+  "productName": "API Test Apple",
+  "category": "Fruits",
+  "shelfLife": 14,
+  "shelfLifeUnit": "days",
+  "unlimitedShelfLife": false,
+  "packUnit": "kg",
+  "description": "Testing API insertion"
+}'
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+The key is using the `--remote` flag with wrangler commands to interact with the remote database. Would you like to try these tests?
