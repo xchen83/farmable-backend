@@ -3,11 +3,15 @@ import { D1Database, D1Result } from '@cloudflare/workers-types';
 // Define the Product interface
 interface Product {
   id?: number;
-  name: string;
-  price: number;
-  description: string;
+  productName: string;
+  category: string;
+  shelfLife?: number | null;
+  shelfLifeUnit?: string | null;
+  unlimitedShelfLife: boolean;
+  packUnit: string;
+  description?: string;
+  productImage?: string;
 }
-
 
 interface Env {
   DB: D1Database;
@@ -42,12 +46,19 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
     if (request.method === "POST") {
       const body = await request.json() as Product;
-      const { name, price, description } = body;
-
       const result = await env.DB.prepare(
-        "INSERT INTO products (name, price, description) VALUES (?, ?, ?)"
+        "INSERT INTO products (productName, category, shelfLife, shelfLifeUnit, unlimitedShelfLife, packUnit, description, productImage) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       )
-        .bind(name, price, description)
+        .bind(
+          body.productName,
+          body.category,
+          body.shelfLife,
+          body.shelfLifeUnit,
+          body.unlimitedShelfLife ? 1 : 0,
+          body.packUnit,
+          body.description,
+          body.productImage
+        )
         .run();
 
       return Response.json({ success: true, id: result.meta.last_row_id }, {
