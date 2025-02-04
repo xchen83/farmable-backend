@@ -1,5 +1,5 @@
 name = "farmable-backend"
-main = "index.js" 
+main = "functions/api/products.ts"
 compatibility_date = "2025-02-01"
 
 [[d1_databases]]
