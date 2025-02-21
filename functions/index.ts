@@ -1,6 +1,10 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import type { Env, Product, Order, OrderItem, Customer, ApiResponse } from './types';
 import products from './api/products';
+import customers from './api/customers';
+import orders from './api/orders';
+import order_items from './api/order_items';
 
 // Define types
 type Bindings = {
@@ -13,8 +17,19 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 
-// Mount the products routes
+// Global CORS
+app.use('/*', cors({
+    origin: ['http://localhost:4200', 'https://farmable.pages.dev', 'https://2e34836e.farmable.pages.dev'],
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+
+// Mount all routes
 app.route('/api/products', products);
+app.route('/api/customers', customers);
+app.route('/api/orders', orders);
+app.route('/api/order-items', order_items);
 
 // Basic health check endpoint
 app.get('/', (c) => {
@@ -27,20 +42,17 @@ app.get('/', (c) => {
 // Orders route with customer info
 app.get('/api/orders', async (c) => {
     try {
-        const db = c.env.DB;
-        const result = await db.prepare(`
-            SELECT o.order_id, o.order_date, o.required_date, 
-                   o.total_amount, o.status,
-                   c.name as customer_name, c.email as customer_email
+        const { DB } = c.env;
+        const result = await DB.prepare(`
+            SELECT o.*, c.name as customer_name 
             FROM orders o
             JOIN customers c ON o.customer_id = c.customer_id
-            ORDER BY o.order_date DESC
+            ORDER BY order_date DESC
         `).all();
 
         return c.json({
             success: true,
-            data: result.results,
-            count: result.results.length
+            data: result.results
         });
     } catch (err: any) {
         console.error('Database error:', err);
@@ -79,29 +91,6 @@ app.get('/api/order-items', async (c) => {
     }
 });
 
-// Customers route
-app.get('/api/customers', async (c) => {
-    try {
-        const db = c.env.DB;
-        const result = await db.prepare(`
-            SELECT customer_id, name, email, phone, total_spent, 
-                   transaction_count, last_transaction_date, created_at 
-            FROM customers
-        `).all();
-
-        return c.json({
-            success: true,
-            data: result.results
-        });
-    } catch (err: any) {
-        console.error('Database error:', err);
-        return c.json({
-            success: false,
-            error: err.message || 'Unknown error occurred'
-        }, 500);
-    }
-});
-
 // Test database endpoint
 app.get('/api/test', async (c) => {
     try {
@@ -124,19 +113,16 @@ app.get('/api/test', async (c) => {
 // New inventory endpoint
 app.get('/api/inventory', async (c) => {
     try {
-        const db = c.env.DB;
-        const result = await db.prepare(`
-            SELECT i.inventory_id, i.quantity_available, i.last_updated,
-                   p.productName, p.category, p.packUnit
+        const { DB } = c.env;
+        const result = await DB.prepare(`
+            SELECT i.*, p.productName
             FROM inventory i
             JOIN products p ON i.product_id = p.product_id
-            ORDER BY p.productName
         `).all();
 
         return c.json({
             success: true,
-            data: result.results,
-            count: result.results.length
+            data: result.results
         });
     } catch (err: any) {
         console.error('Database error:', err);

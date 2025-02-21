@@ -30,8 +30,6 @@ CREATE TABLE IF NOT EXISTS orders (
     total_amount DECIMAL(10,2) NOT NULL,
     status TEXT DEFAULT 'pending',
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
@@ -44,12 +42,8 @@ CREATE TABLE IF NOT EXISTS order_items (
     unit_price DECIMAL(10,2) NOT NULL,
     status TEXT DEFAULT 'pending',
     system_note TEXT,
-    FOREIGN KEY (order_id) REFERENCES orders(order_id)
-        ON DELETE CASCADE
-        ON UPDATE CASCADE,
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
     FOREIGN KEY (product_id) REFERENCES products(product_id)
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS inventory (
@@ -58,6 +52,4 @@ CREATE TABLE IF NOT EXISTS inventory (
     quantity_available DECIMAL(10,2) NOT NULL,
     last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(product_id)
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE
 );

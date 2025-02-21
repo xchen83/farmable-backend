@@ -16,9 +16,10 @@ const products = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
 // Enable CORS for frontend access
 products.use('/*', cors({
-  origin: ['http://localhost:3000', 'https://your-frontend-domain.com'],
+  origin: ['http://localhost:4200', 'https://farmable.pages.dev', 'https://2e34836e.farmable.pages.dev'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowHeaders: ['Content-Type', 'Authorization']
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }))
 
 // GET all products
@@ -26,8 +27,8 @@ products.get('/', async (c) => {
   try {
     const { DB } = c.env
     const result = await DB.prepare(`
-      SELECT * FROM products
-      ORDER BY productName
+      SELECT * FROM products 
+      ORDER BY product_id DESC
     `).all()
     return c.json({ success: true, data: result.results })
   } catch (err: any) {
