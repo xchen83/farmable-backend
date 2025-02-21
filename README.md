@@ -1,109 +1,102 @@
-# Farmable Backend
+# Farmable Backend API
 
-This is the backend API for the Farmable project, built with Cloudflare Pages Functions and D1 database.
+A Cloudflare Workers-based backend API for the Farmable application, using D1 database for data storage.
 
-## Project Structure
-farmable-backend/
-├── functions/
-│ └── api/
-│ └── products.ts # API endpoint for products
-├── index.js # Entry point
-├── package.json # Dependencies and scripts
-├── wrangler.toml # Cloudflare configuration
-└── schema.sql # Database schema
+## 🚀 Features
 
+- RESTful API endpoints for:
+  - Products management
+  - Customer records
+  - Order processing
+  - Inventory tracking
+- Built with Cloudflare Workers and D1 Database
+- TypeScript support
+- CORS enabled for frontend integration
 
-## Setup
+## 📋 API Endpoints
 
-1. Install dependencies:
+### Products
+- `GET /api/products` - Get all products
+- `POST /api/products` - Create a new product
+- `PUT /api/products/:id` - Update a product
+- `DELETE /api/products/:id` - Delete a product
+
+### Database Schema
+sql
+CREATE TABLE products (
+product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+productName TEXT NOT NULL,
+category TEXT NOT NULL,
+packUnit TEXT NOT NULL,
+description TEXT
+);
+-- More tables defined in schema.sql
+
+## 🛠️ Development Setup
+1. Clone the repository:
+bash
+git clone https://github.com/xchen83/farmable-backend.git
+cd farmable-backend
+
+2. Install dependencies:
 bash
 npm install
 
-2. Create a D1 database (if not already created):
-bash
-wrangler d1 create farmable-database
+3. Configure Wrangler:
+toml
 
-3. Apply the database schema:
-bash
-wrangler d1 execute farmable-database --file=schema.sql
+wrangler.toml
+name = "farmable-backend"
+main = "functions/index.ts"
+[[d1_databases]]
+binding = "DB"
+database_name = "farmable-database"
+database_id = "your-database-id"
 
-
-## Development
-
-Run the development server:
-bash
+4. Run locally:
+```bash
 npm run dev
-
-
-The API will be available at: `https://farmable-backend.pages.dev/api/products`
-
-## API Endpoints
-
-### GET /api/products
-Returns all products in the database.
-
-### POST /api/products
-Creates a new product. Required fields:
-- productName (string)
-- category (string)
-- shelfLife (number, optional)
-- shelfLifeUnit (string, optional)
-- unlimitedShelfLife (boolean)
-- packUnit (string)
-- description (string, optional)
-- productImage (string, optional)
-
-## Database Schema
-sql
-CREATE TABLE products (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-productName TEXT NOT NULL,
-category TEXT NOT NULL,
-shelfLife INTEGER,
-shelfLifeUnit TEXT,
-unlimitedShelfLife BOOLEAN NOT NULL DEFAULT false,
-packUnit TEXT NOT NULL,
-description TEXT,
-productImage TEXT
-);
-
-
-## Environment Variables
-
-The project uses Cloudflare D1 for the database. The database binding is configured in `wrangler.toml`.
-
-## Testing
-
-To test your remote database, you can use these commands:
-
-1. View all products in the remote database:
-```bash
-wrangler d1 execute farmable-database --remote --command="SELECT * FROM products"
 ```
 
-2. Add a test product to remote database:
+5. Deploy:
 ```bash
-wrangler d1 execute farmable-database --remote --command="INSERT INTO products (productName, category, shelfLife, shelfLifeUnit, unlimitedShelfLife, packUnit, description) VALUES ('Test Remote Apple', 'Fruits', 14, 'days', 0, 'kg', 'Testing remote database')"
+npm run deploy
 ```
 
-3. Test the remote API endpoint directly:
+## 🔧 Development
+
+### Local Development
+1. Start the development server:
 ```bash
-curl https://farmable-backend.pages.dev/api/products
+npm run dev
 ```
 
-4. Add a product through the remote API:
+2. Access the API at `http://localhost:8787`
+
+### Database Operations
+- Apply schema:
 ```bash
-curl -X POST https://farmable-backend.pages.dev/api/products \
--H "Content-Type: application/json" \
--d '{
-  "productName": "API Test Apple",
-  "category": "Fruits",
-  "shelfLife": 14,
-  "shelfLifeUnit": "days",
-  "unlimitedShelfLife": false,
-  "packUnit": "kg",
-  "description": "Testing API insertion"
-}'
+wrangler d1 execute farmable-database --local --file=./schema.sql
 ```
 
-The key is using the `--remote` flag with wrangler commands to interact with the remote database. Would you like to try these tests?
+- Add test data:
+```bash
+wrangler d1 execute farmable-database --local --command="INSERT INTO products..."
+```
+
+## 📚 Tech Stack
+
+- [Cloudflare Workers](https://workers.cloudflare.com/)
+- [Hono](https://honojs.dev/) - Web framework
+- [D1 Database](https://developers.cloudflare.com/d1/)
+- TypeScript
+
+## 🔐 Environment Variables
+
+Required environment variables in `wrangler.toml`:
+- `database_id`: 6cd713c9-04f3-4edc-9569-33f7f85de808
+- `database_name`: farmable-database
+
+## 👥 Contributors
+
+- Catherine Chen

@@ -1,5 +1,91 @@
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 import { Product, Env, ApiResponse } from '../types';
 import { corsHeaders, handleOptions, createResponse } from '../utils/cors';
+
+// Define types
+type Bindings = {
+  DB: D1Database;
+}
+
+type Variables = {
+  // Add any variables you need
+}
+
+const products = new Hono<{ Bindings: Bindings, Variables: Variables }>()
+
+// Enable CORS for frontend access
+products.use('/*', cors({
+  origin: ['http://localhost:3000', 'https://your-frontend-domain.com'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowHeaders: ['Content-Type', 'Authorization']
+}))
+
+// GET all products
+products.get('/', async (c) => {
+  try {
+    const { DB } = c.env
+    const result = await DB.prepare(`
+      SELECT * FROM products
+      ORDER BY productName
+    `).all()
+    return c.json({ success: true, data: result.results })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+// POST new product
+products.post('/', async (c) => {
+  try {
+    const { DB } = c.env
+    const body = await c.req.json()
+    const { productName, category, packUnit, description } = body
+
+    const result = await DB.prepare(`
+      INSERT INTO products (productName, category, packUnit, description)
+      VALUES (?, ?, ?, ?)
+    `).bind(productName, category, packUnit, description).run()
+
+    return c.json({ success: true, id: result.meta.last_row_id })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+// PUT update product
+products.put('/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const body = await c.req.json()
+    const { productName, category, packUnit, description } = body
+
+    await DB.prepare(`
+      UPDATE products 
+      SET productName = ?, category = ?, packUnit = ?, description = ?
+      WHERE product_id = ?
+    `).bind(productName, category, packUnit, description, id).run()
+
+    return c.json({ success: true })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+// DELETE product
+products.delete('/:id', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    await DB.prepare('DELETE FROM products WHERE product_id = ?').bind(id).run()
+    return c.json({ success: true })
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message }, 500)
+  }
+})
+
+export default products
 
 // Add these function definitions before the main export
 async function handleGetRequest(env: Env) {
@@ -160,51 +246,6 @@ async function handleUpdateRequest(request: Request, env: Env, id: number) {
     }, 500);
   }
 }
-
-// Your existing export default stays the same
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    console.log('Request received:', {
-      method: request.method,
-      url: request.url,
-      headers: Object.fromEntries(request.headers.entries())
-    });
-
-    if (request.method === "OPTIONS") {
-      return handleOptions();
-    }
-
-    try {
-      switch (request.method) {
-        case "PUT":
-          const updateUrl = new URL(request.url);
-          const updateId = updateUrl.pathname.split('/').pop();
-          console.log('Handling PUT request for id:', updateId);
-          return await handleUpdateRequest(request, env, Number(updateId));
-        case "DELETE":
-          const deleteUrl = new URL(request.url);
-          const deleteId = deleteUrl.pathname.split('/').pop();
-          return await handleDeleteRequest(env, Number(deleteId));
-        case "POST":
-          return await handlePostRequest(request, env);
-        case "GET":
-          return await handleGetRequest(env);
-        default:
-          return createResponse<ApiResponse<null>>({
-            success: false,
-            error: "Method not allowed"
-          }, 405);
-      }
-    } catch (error) {
-      console.error("Error in fetch:", error);
-      return createResponse<ApiResponse<null>>({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
-        details: JSON.stringify(error)
-      }, 500);
-    }
-  }
-};
 
 // Your existing handlePostRequest function stays the same
 async function handlePostRequest(request: Request, env: Env) {

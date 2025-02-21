@@ -3,8 +3,8 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "wrangler pages dev public --compatibility-date=2024-01-31 --d1=DB",
-        "deploy": "wrangler pages deploy ."
+        "dev": "wrangler pages dev public --compatibility-date=2024-01-31 --persist-to=.wrangler/state --d1=DB",
+        "deploy": "wrangler pages deploy public"
     },
     "devDependencies": {
         "@cloudflare/workers-types": "^4.20250129.0",

@@ -6,59 +6,173 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Farmable API</title>
     <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px 0;
-        }
-
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f4f4f4;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            background-color: #f5f5f5;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            background-color: white;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .status-completed {
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .status-partial {
+            color: #ffc107;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+                margin: 10px;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+
+            th,
+            td {
+                padding: 8px 10px;
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>Farmable API Data</h1>
+        <h1>Farmable API Dashboard</h1>
 
-        <h2>Products</h2>
-        <div id="products-table"></div>
+        <div id="error-message" class="error" style="display: none;"></div>
 
-        <h2>Customers</h2>
-        <div id="customers-table"></div>
+        <h2>📦 Orders</h2>
+        <div id="orders-table" class="loading">Loading orders...</div>
+
+        <h2>📝 Order Items</h2>
+        <div id="order-items-table" class="loading">Loading order items...</div>
+
+        <h2>🥕 Products</h2>
+        <div id="products-table" class="loading">Loading products...</div>
+
+        <h2>👥 Customers</h2>
+        <div id="customers-table" class="loading">Loading customers...</div>
     </div>
 
     <script>
         async function fetchData(endpoint) {
-            const response = await fetch(endpoint);
-            const data = await response.json();
-            return data.data || [];
+            console.log(`Fetching data from ${endpoint}...`);
+            try {
+                const response = await fetch(endpoint);
+                console.log(`Response status:`, response.status);
+                const data = await response.json();
+                console.log(`Data received:`, data);
+                return data.data || [];
+            } catch (error) {
+                console.error(`Error fetching from ${endpoint}:`, error);
+                throw error;
+            }
         }
 
-        function createTable(data, headers) {
+        function createTable(data, headers, options = {}) {
+            console.log('Creating table with data:', data);
             if (!data || data.length === 0) return '<p>No data available</p>';
 
             const tableHeaders = headers.map(h => `<th>${h}</th>`).join('');
             const tableRows = data.map(item => {
-                const cells = headers.map(header => {
-                    const value = item[header.toLowerCase()] ?? '';
+                return `<tr>${headers.map(header => {
+                    const key = header.toLowerCase().replace(/ /g, '_');
+                    let value = item[key] ?? '';
+
+                    // Format status with color
+                    if (header.toLowerCase() === 'status') {
+                        const statusClass = `status-${value.toLowerCase()}`;
+                        value = `<span class="${statusClass}">${value}</span>`;
+                    }
+
+                    // Format dates
+                    if (header.includes('date') && value) {
+                        value = new Date(value).toLocaleDateString();
+                    }
+
+                    // Format currency
+                    if (header.includes('amount') || header.includes('price')) {
+                        value = typeof value === 'number' ? `$${value.toFixed(2)}` : value;
+                    }
+
                     return `<td>${value}</td>`;
-                }).join('');
-                return `<tr>${cells}</tr>`;
+                }).join('')}</tr>`;
             }).join('');
 
             return `
@@ -70,18 +184,35 @@
         }
 
         async function displayData() {
+            const errorDiv = document.getElementById('error-message');
             try {
+                console.log('Starting to fetch data...');
+
+                // Fetch and display orders
+                const orders = await fetchData('/api/orders');
+                const orderHeaders = ['Order ID', 'Customer ID', 'Order Date', 'Required Date', 'Total Amount', 'Status'];
+                document.getElementById('orders-table').innerHTML = createTable(orders, orderHeaders);
+
+                // Fetch and display order items
+                const orderItems = await fetchData('/api/order-items');
+                const orderItemHeaders = ['Order ID', 'Product ID', 'Requested Quantity', 'Fulfilled Quantity', 'Remaining Quantity', 'Unit Price', 'Status', 'System Note'];
+                document.getElementById('order-items-table').innerHTML = createTable(orderItems, orderItemHeaders);
+
                 // Fetch and display products
                 const products = await fetchData('/api/products');
-                const productHeaders = ['ID', 'ProductName', 'Category', 'ShelfLife', 'ShelfLifeUnit', 'UnlimitedShelfLife', 'PackUnit', 'Description'];
+                const productHeaders = ['Product ID', 'Product Name', 'Category', 'Pack Unit'];
                 document.getElementById('products-table').innerHTML = createTable(products, productHeaders);
 
                 // Fetch and display customers
                 const customers = await fetchData('/api/customers');
-                const customerHeaders = ['Customer_ID', 'Name', 'Email', 'Phone', 'Total_Spent', 'Transaction_Count', 'Last_Transaction_Date'];
+                const customerHeaders = ['Customer ID', 'Name', 'Email', 'Phone', 'Total Spent', 'Transaction Count'];
                 document.getElementById('customers-table').innerHTML = createTable(customers, customerHeaders);
+
+                errorDiv.style.display = 'none';
             } catch (error) {
-                console.error('Error fetching data:', error);
+                console.error('Error in displayData:', error);
+                errorDiv.textContent = `Error loading data: ${error.message}`;
+                errorDiv.style.display = 'block';
             }
         }
 
