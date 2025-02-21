@@ -44,3 +44,6 @@ Thumbs.db
 # New additions
 .dev.vars
 .env
+
+# New additions
+.wrangler/

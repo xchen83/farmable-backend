@@ -3,12 +3,15 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "wrangler pages dev functions/api/products.ts --compatibility-date=2024-01-31",
+        "dev": "wrangler pages dev public --compatibility-date=2024-01-31 --d1=DB",
         "deploy": "wrangler pages deploy ."
     },
     "devDependencies": {
         "@cloudflare/workers-types": "^4.20250129.0",
         "typescript": "~5.7.2",
         "wrangler": "^3.28.1"
+    },
+    "dependencies": {
+        "hono": "^3.0.0"
     }
 }

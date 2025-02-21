@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmable API</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Farmable API Data</h1>
+
+        <h2>Products</h2>
+        <div id="products-table"></div>
+
+        <h2>Customers</h2>
+        <div id="customers-table"></div>
+    </div>
+
+    <script>
+        async function fetchData(endpoint) {
+            const response = await fetch(endpoint);
+            const data = await response.json();
+            return data.data || [];
+        }
+
+        function createTable(data, headers) {
+            if (!data || data.length === 0) return '<p>No data available</p>';
+
+            const tableHeaders = headers.map(h => `<th>${h}</th>`).join('');
+            const tableRows = data.map(item => {
+                const cells = headers.map(header => {
+                    const value = item[header.toLowerCase()] ?? '';
+                    return `<td>${value}</td>`;
+                }).join('');
+                return `<tr>${cells}</tr>`;
+            }).join('');
+
+            return `
+                <table>
+                    <thead><tr>${tableHeaders}</tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            `;
+        }
+
+        async function displayData() {
+            try {
+                // Fetch and display products
+                const products = await fetchData('/api/products');
+                const productHeaders = ['ID', 'ProductName', 'Category', 'ShelfLife', 'ShelfLifeUnit', 'UnlimitedShelfLife', 'PackUnit', 'Description'];
+                document.getElementById('products-table').innerHTML = createTable(products, productHeaders);
+
+                // Fetch and display customers
+                const customers = await fetchData('/api/customers');
+                const customerHeaders = ['Customer_ID', 'Name', 'Email', 'Phone', 'Total_Spent', 'Transaction_Count', 'Last_Transaction_Date'];
+                document.getElementById('customers-table').innerHTML = createTable(customers, customerHeaders);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Load data when page loads
+        displayData();
+    </script>
+</body>
+
+</html>

@@ -1,3 +1,5 @@
+/// <reference types="@cloudflare/workers-types" />
+
 export interface Product {
   id?: number;
   productName: string;
@@ -11,6 +13,11 @@ export interface Product {
 }
 
 export interface Env {
+  DB: D1Database;
+  [key: string]: unknown;
+}
+
+export interface Bindings {
   DB: D1Database;
 }
 
