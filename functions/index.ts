@@ -2,23 +2,27 @@ import { Hono } from 'hono';
 import type { Env, Product, Order, OrderItem, Customer, ApiResponse } from './types';
 import products from './api/products';
 
-const app = new Hono<{ Bindings: Env }>();
+// Define types
+type Bindings = {
+    DB: D1Database;
+};
 
-// Serve HTML dashboard at root
-app.get('/', async (c) => {
-    return c.html(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <!-- Your entire index.html content here -->
-        </html>
-    `);
-});
+type Variables = {
+    // Add any variables you need
+};
 
-// Add a test route
-app.get('/test', (c) => c.text('API is working'));
+const app = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 
 // Mount the products routes
 app.route('/api/products', products);
+
+// Basic health check endpoint
+app.get('/', (c) => {
+    return c.json({
+        status: 'ok',
+        message: 'Farmable API is running'
+    });
+});
 
 // Orders route with customer info
 app.get('/api/orders', async (c) => {
@@ -98,12 +102,11 @@ app.get('/api/customers', async (c) => {
     }
 });
 
-// Example route using the database
+// Test database endpoint
 app.get('/api/test', async (c) => {
     try {
-        const db = c.env.DB;
-        // Test with your products table
-        const result = await db.prepare('SELECT * FROM products LIMIT 1').all();
+        const { DB } = c.env;
+        const result = await DB.prepare('SELECT * FROM products LIMIT 1').all();
         return c.json({
             success: true,
             data: result,
