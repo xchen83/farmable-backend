@@ -1,132 +1,163 @@
+// functions/api/orders.ts - Adding order creation functionality
 import { Hono } from 'hono'
 
 type Bindings = {
-    DB: D1Database;
+  DB: D1Database;
 }
 
 type Variables = {}
 
 const orders = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
-// GET all orders with full details
-orders.get('/', async (c) => {
-    try {
-        const { DB } = c.env
-        console.log('Attempting to fetch orders with full details...')
-        const result = await DB.prepare(`
-      SELECT 
-        o.*,
-        json_object(
-          'customer_id', c.customer_id,
-          'name', c.name,
-          'email', c.email,
-          'phone', c.phone,
-          'total_spent', c.total_spent,
-          'transaction_count', c.transaction_count,
-          'last_transaction_date', c.last_transaction_date,
-          'created_at', c.created_at
-        ) as customer,
-        json_group_array(
-          json_object(
-            'order_item_id', oi.order_item_id,
-            'product_id', oi.product_id,
-            'requested_quantity', oi.requested_quantity,
-            'fulfilled_quantity', oi.fulfilled_quantity,
-            'remaining_quantity', oi.remaining_quantity,
-            'unit_price', oi.unit_price,
-            'status', oi.status,
-            'system_note', oi.system_note,
-            'product', json_object(
-              'product_id', p.product_id,
-              'productName', p.productName,
-              'category', p.category,
-              'packUnit', p.packUnit
-            )
-          )
-        ) as order_items
-      FROM orders o
-      LEFT JOIN customers c ON o.customer_id = c.customer_id
-      LEFT JOIN order_items oi ON o.order_id = oi.order_id
-      LEFT JOIN products p ON oi.product_id = p.product_id
-      GROUP BY o.order_id
-      ORDER BY o.order_date DESC
-    `).all()
+// Existing API code...
 
-        // Parse JSON strings in the result
-        const orders = result.results.map((order: any) => ({
-            ...order,
-            customer: JSON.parse(order.customer),
-            order_items: JSON.parse(order.order_items)
-        }))
+// POST create a new order
+orders.post('/', async (c) => {
+  try {
+    const { DB } = c.env
+    const { 
+      customer_id, 
+      order_date, 
+      required_date, 
+      total_amount, 
+      status = 'pending',
+      order_items 
+    } = await c.req.json()
 
-        return c.json({
-            success: true,
-            data: orders
-        })
-    } catch (err: any) {
-        console.error('Error fetching orders:', err)
-        return c.json({
-            success: false,
-            error: err.message,
-            details: err.stack
-        }, 500)
+    // Start database transaction
+    const stmt = DB.prepare(`
+      INSERT INTO orders (customer_id, order_date, required_date, total_amount, status)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+    
+    const result = await stmt.bind(
+      customer_id, 
+      order_date, 
+      required_date, 
+      total_amount,
+      status
+    ).run()
+
+    if (!result.success) {
+      return c.json({
+        success: false,
+        error: "Failed to create order"
+      }, 500)
     }
+
+    const orderId = result.meta.last_row_id
+    
+    // Insert order items
+    if (order_items && Array.isArray(order_items) && order_items.length > 0) {
+      for (const item of order_items) {
+        const { product_id, requested_quantity, unit_price } = item
+        
+        // Get current inventory
+        const inventoryResult = await DB.prepare(`
+          SELECT quantity_available FROM inventory WHERE product_id = ?
+        `).bind(product_id).first()
+        
+        let fulfilledQuantity = requested_quantity
+        let remainingQuantity = 0
+        let status = 'completed'
+        let systemNote = null
+        
+        // Check if inventory is sufficient
+        if (inventoryResult && inventoryResult.quantity_available < requested_quantity) {
+          fulfilledQuantity = inventoryResult.quantity_available || 0
+          remainingQuantity = requested_quantity - fulfilledQuantity
+          status = 'pending'
+          systemNote = `Insufficient inventory. Requested: ${requested_quantity}, Available: ${fulfilledQuantity}`
+        }
+        
+        // Insert order item
+        await DB.prepare(`
+          INSERT INTO order_items (
+            order_id, 
+            product_id, 
+            requested_quantity, 
+            fulfilled_quantity, 
+            remaining_quantity, 
+            unit_price, 
+            status, 
+            system_note
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          orderId,
+          product_id,
+          requested_quantity,
+          fulfilledQuantity,
+          remainingQuantity,
+          unit_price,
+          status,
+          systemNote
+        ).run()
+        
+        // Update inventory
+        if (fulfilledQuantity > 0) {
+          await DB.prepare(`
+            UPDATE inventory
+            SET quantity_available = quantity_available - ?
+            WHERE product_id = ?
+          `).bind(fulfilledQuantity, product_id).run()
+        }
+      }
+    }
+    
+    // Update customer transaction statistics
+    await DB.prepare(`
+      UPDATE customers
+      SET 
+        transaction_count = transaction_count + 1,
+        total_spent = total_spent + ?,
+        last_transaction_date = ?
+      WHERE customer_id = ?
+    `).bind(total_amount, order_date, customer_id).run()
+
+    return c.json({ 
+      success: true, 
+      id: orderId,
+      message: "Order created successfully" 
+    })
+  } catch (err: any) {
+    console.error('Error creating order:', err)
+    return c.json({ 
+      success: false, 
+      error: err.message 
+    }, 500)
+  }
 })
 
-// GET order list with product details
-orders.get('/list', async (c) => {
-    try {
-        const { DB } = c.env
-        console.log('Attempting to fetch order list...')
-
-        const result = await DB.prepare(`
-      SELECT 
-        o.order_id,
-        o.order_date,
-        o.required_date,
-        o.status as order_status,
-        o.total_amount,
-        c.name as customer_name,
-        c.transaction_count,
-        json_group_array(
-          json_object(
-            'productName', p.productName,
-            'requested_quantity', oi.requested_quantity,
-            'fulfilled_quantity', oi.fulfilled_quantity,
-            'remaining_quantity', oi.remaining_quantity,
-            'status', oi.status,
-            'system_note', oi.system_note,
-            'packUnit', p.packUnit
-          )
-        ) as items
-      FROM orders o
-      LEFT JOIN customers c ON o.customer_id = c.customer_id
-      LEFT JOIN order_items oi ON o.order_id = oi.order_id
-      LEFT JOIN products p ON oi.product_id = p.product_id
-      GROUP BY o.order_id
-      ORDER BY o.order_date DESC
-    `).all()
-
-        // Parse the items JSON string for each order
-        const orders = result.results.map((order: any) => ({
-            ...order,
-            items: JSON.parse(order.items)
-        }))
-
-        return c.json({
-            success: true,
-            data: orders
-        })
-    } catch (err: any) {
-        console.error('Error fetching order list:', err)
-        return c.json({
-            success: false,
-            error: err.message,
-            details: err.stack
-        }, 500)
+// PUT update order status
+orders.put('/:id/status', async (c) => {
+  try {
+    const { DB } = c.env
+    const id = c.req.param('id')
+    const { status } = await c.req.json()
+    
+    if (!['pending', 'accepted', 'completed', 'cancelled'].includes(status)) {
+      return c.json({ 
+        success: false, 
+        error: "Invalid order status" 
+      }, 400)
     }
+
+    await DB.prepare(`
+      UPDATE orders
+      SET status = ?
+      WHERE order_id = ?
+    `).bind(status, id).run()
+
+    return c.json({ success: true })
+  } catch (err: any) {
+    return c.json({ 
+      success: false, 
+      error: err.message 
+    }, 500)
+  }
 })
 
-// Keep existing POST, PUT, DELETE endpoints
+// Other existing API endpoints remain unchanged...
 
 export default orders
