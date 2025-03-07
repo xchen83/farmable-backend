@@ -9,6 +9,7 @@ type Variables = {}
 const order_items = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
 // GET all order items
+// Current implementation
 order_items.get('/', async (c) => {
     try {
         const { DB } = c.env
